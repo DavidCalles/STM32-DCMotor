@@ -51,7 +51,7 @@ typedef struct {
 ---------------------------- GLOBAL VARIABLES --------------------------
 ***************************************************************************/
 TIM_HandleTypeDef tim1;  // Timer Handler 
-const uint16_t period = 10000;
+const uint16_t period = 100;
 uint16_t counter = 0;
 uint8_t motorEnable = 0;
 
@@ -217,24 +217,27 @@ ParserReturnVal_t DCMotor()
     if(tempMotor == 0){
       // No pwm generated
       motorEnable = 0;
-      HAL_TIM_PWM_Stop(&tim1, TIM_CHANNEL_1);
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_SET);
+      
+      //HAL_TIM_PWM_Stop(&tim1, TIM_CHANNEL_1);
+      //HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
       HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN2_PIN, GPIO_PIN_RESET);
     }
     else if(tempMotor == 1){
       // PWM generated forward config
       motorEnable = 1;
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
+      
+      //HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
       HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN2_PIN, GPIO_PIN_RESET);
     }
     else if(tempMotor == 2){
       // PWM generated backwards config
       motorEnable = 1;
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
+      
+      //HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_ENABLE_PIN, GPIO_PIN_RESET);
       HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN1_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(DC_MOTOR_PORT, DC_MOTOR_IN2_PIN, GPIO_PIN_SET);
     }
     else{
       printf("Invalid argument."
