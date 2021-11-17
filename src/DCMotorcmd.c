@@ -47,6 +47,13 @@ typedef struct {
   uint8_t status;
 }PWM_CHANNEL;
 
+typedef struct {
+  uint16_t currentP;
+  uint16_t objectiveP;
+  uint32_t channelNum;
+  uint8_t status;
+}PWM_CHANNEL_FIXED;
+
 /**************************************************************************
 ---------------------------- GLOBAL VARIABLES --------------------------
 ***************************************************************************/
@@ -77,6 +84,13 @@ PWM_CHANNEL ch3 = {constantPlot, TIM_CHANNEL_3, 0};
 PWM_CHANNEL *ch1Ptr = &ch1;
 PWM_CHANNEL *ch2Ptr = &ch2;
 PWM_CHANNEL *ch3Ptr = &ch3;
+
+PWM_CHANNEL_FIXED ch1f = {0, 50, TIM_CHANNEL_1, 0};
+PWM_CHANNEL_FIXED ch2f = {0, 50, TIM_CHANNEL_2, 0};
+PWM_CHANNEL_FIXED ch3f = {0, 50, TIM_CHANNEL_3, 0};
+PWM_CHANNEL_FIXED *ch1fPtr = &ch1f;
+PWM_CHANNEL_FIXED *ch2fPtr = &ch2f;
+PWM_CHANNEL_FIXED *ch3fPtr = &ch3f;
 
 /**************************************************************************
 ------------------------ OWN FUNCTION DEFINITIONS -------------------------
@@ -257,6 +271,67 @@ ADD_CMD("DCMotor", DCMotor,"\t\tDCMotor <0B|1F|2R>, enables DC motor output.")
 *
 *	Returns:		  ret: CmdReturnOk = 0 if Okay.
 ---------------------------------------------------------------------------*/
+ParserReturnVal_t PWMFixed()
+{ 
+  uint16_t tempChannel;
+  uint16_t percentage;
+  if(fetch_uint16_arg(&tempChannel)){
+    printf("Please enter the channel number\n");
+  }
+  else{
+    if(fetch_uint16_arg(&percentage)){
+      printf("Please enter the speed as a percentage\n");
+    }
+    else{
+      switch(tempChannel){
+        
+        case 1:{
+          // Initialize channel 1 of  PWM
+          ch1fPtr->status = 1;
+          ch1fPtr->objectiveP = percentage;
+          ch1fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_1);
+          break;
+        }
+
+        case 2:{
+          // Initialize channel 2 of  PWM
+          ch2fPtr->status = 1;
+          ch2fPtr->objectiveP = percentage;
+          ch2fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_2);
+          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_2);
+          break;
+        }
+
+        case 3:{
+          // Initialize channel 3 of  PWM
+          ch3fPtr->status = 1;
+          ch3fPtr->objectiveP = percentage;
+          ch3fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_3);
+          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_3);
+          break;
+        }
+
+        default:{
+          printf("Please enter a channel between 1 and 3\n");
+          break;
+        }
+      }
+    }
+  }
+
+  return CmdReturnOk;
+} 
+// MACRO: Add new command to help menu
+ADD_CMD("PWMFixed", PWMFixed,"\t\tPWMSweep <chann> <profile> Set type of duty cycle sweep.")
+
+/*--------------------------------------------------------------------------
+*	Name:			    TimerInit
+*	Description:	
+*	Parameters:		void
+*
+*	Returns:		  ret: CmdReturnOk = 0 if Okay.
+---------------------------------------------------------------------------*/
 ParserReturnVal_t PWMSweep()
 { 
   uint16_t tempChannel;
@@ -388,12 +463,18 @@ void TIM1_UP_TIM10_IRQHandler(void)
 *
 *	Returns:		  ret: CmdReturnOk = 0 if Okay.
 ---------------------------------------------------------------------------*/
-void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL *chx)
+void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL_FIXED *chx)
 { 
   if(chx->status)
-  {
-    __HAL_TIM_SET_COMPARE(htim, (chx->channelNum), (chx->profile[counter]));
-    //__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, parabolaPlot[counter]);
+  { uint32_t registerVal = (655536 * chx->currentP) / 100;
+    __HAL_TIM_SET_COMPARE(htim, (chx->channelNum), (uint16_t)(registerVal));
+
+    if(chx->currentP < chx->objectiveP){
+      chx->currentP++; // Increase 1%
+    } 
+    else if (chx->currentP > chx->objectiveP){
+      chx->currentP--; // Decrease 1%
+    }
   }
 }
 /*--------------------------------------------------------------------------
@@ -407,9 +488,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
   if(motorEnable){
     HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-    incrementDC(htim, ch1Ptr);
-    incrementDC(htim, ch2Ptr);
-    incrementDC(htim, ch3Ptr);
+    incrementDC(htim, ch1fPtr);
+    incrementDC(htim, ch2fPtr);
+    incrementDC(htim, ch3fPtr);
 
     if(++counter >= PROFILE_SAMPLES)
     {
