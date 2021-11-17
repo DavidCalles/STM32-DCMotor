@@ -303,7 +303,7 @@ ParserReturnVal_t PWMFixed()
                                                                 (ch1fPtr->currentP - ch1fPtr->objectiveP);
             if((timeactive*period/10) < minTime){
               printf("Desired time is too low, new time set to %lds\n", (minTime*10)/period);
-              ch1fPtr->timeActive = minTime;
+              ch1fPtr->timeActive = 1;
             }
             else{
               ch1fPtr->timeActive = timeactive*period/10;
@@ -510,7 +510,6 @@ void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL_FIXED *chx)
       chx->timeActive--;
     }
     
-
     if(chx->currentP == 0){
       chx->status = 0;
     }
