@@ -48,9 +48,10 @@ typedef struct {
 }PWM_CHANNEL;
 
 typedef struct {
-  uint16_t currentP;
-  uint16_t objectiveP;
+  uint32_t currentP;
+  uint32_t objectiveP;
   uint32_t channelNum;
+  uint32_t timeActive;
   uint8_t status;
 }PWM_CHANNEL_FIXED;
 
@@ -58,7 +59,7 @@ typedef struct {
 ---------------------------- GLOBAL VARIABLES --------------------------
 ***************************************************************************/
 TIM_HandleTypeDef tim1;  // Timer Handler 
-const uint16_t period = 100;
+const uint16_t period = 1000;
 uint16_t counter = 0;
 uint8_t motorEnable = 0;
 
@@ -273,9 +274,10 @@ ADD_CMD("DCMotor", DCMotor,"\t\tDCMotor <0B|1F|2R>, enables DC motor output.")
 ---------------------------------------------------------------------------*/
 ParserReturnVal_t PWMFixed()
 { 
-  uint16_t tempChannel;
+  uint32_t tempChannel;
   uint16_t percentage;
-  if(fetch_uint16_arg(&tempChannel)){
+  uint32_t timeactive;
+  if(fetch_uint32_arg(&tempChannel)){
     printf("Please enter the channel number\n");
   }
   else{
@@ -283,39 +285,52 @@ ParserReturnVal_t PWMFixed()
       printf("Please enter the speed as a percentage\n");
     }
     else{
-      switch(tempChannel){
+      if(fetch_uint32_arg(&timeactive)){
+        printf("Please enter the time to be on in s\n");
+      }
+      else{
+        switch(tempChannel){
         
-        case 1:{
-          // Initialize channel 1 of  PWM
-          ch1fPtr->status = 1;
-          ch1fPtr->objectiveP = percentage;
-          ch1fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_1);
-          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_1);
-          break;
-        }
+          case 1:{
+            // Initialize channel 1 of  PWM
+            printf("Channel 1 set!\n");
+            ch1fPtr->status = 1;
+            ch1fPtr->objectiveP =  (uint32_t)percentage * (uint32_t)period / (uint32_t)100;
+            ch1fPtr->timeActive = timeactive*100;
+            ch1fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_1);
+            printf("Current Speed: %ld , Objective Speed: %ld \n", ch1fPtr->currentP, ch1fPtr->objectiveP);
+            HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_1);
+            break;
+          }
 
-        case 2:{
-          // Initialize channel 2 of  PWM
-          ch2fPtr->status = 1;
-          ch2fPtr->objectiveP = percentage;
-          ch2fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_2);
-          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_2);
-          break;
-        }
+          case 2:{
+            // Initialize channel 2 of  PWM
+            printf("Channel 2 set!\n");
+            ch2fPtr->status = 1;
+            ch2fPtr->objectiveP =  (uint32_t)percentage * (uint32_t)period / (uint32_t)100;
+            ch2fPtr->timeActive = timeactive*100;
+            ch2fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_2);
+            printf("Current Speed: %ld , Objective Speed: %ld \n", ch2fPtr->currentP, ch2fPtr->objectiveP);
+            HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_2);
+            break;
+          }
 
-        case 3:{
-          // Initialize channel 3 of  PWM
-          ch3fPtr->status = 1;
-          ch3fPtr->objectiveP = percentage;
-          ch3fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_3);
-          HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_3);
-          break;
-        }
+          case 3:{
+            // Initialize channel 3 of  PWM
+            ch3fPtr->status = 1;
+            ch3fPtr->objectiveP =  (uint32_t)percentage * (uint32_t)period / (uint32_t)100;
+            ch3fPtr->timeActive = timeactive*100;
+            ch3fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_3);
+            printf("Current Speed: %ld , Objective Speed: %ld \n", ch3fPtr->currentP, ch3fPtr->objectiveP);
+            HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_3);
+            break;
+          }
 
-        default:{
-          printf("Please enter a channel between 1 and 3\n");
-          break;
-        }
+          default:{
+            printf("Please enter a channel between 1 and 3\n");
+            break;
+          }
+        }  
       }
     }
   }
@@ -323,7 +338,7 @@ ParserReturnVal_t PWMFixed()
   return CmdReturnOk;
 } 
 // MACRO: Add new command to help menu
-ADD_CMD("PWMFixed", PWMFixed,"\t\tPWMSweep <chann> <profile> Set type of duty cycle sweep.")
+ADD_CMD("PWMFixed", PWMFixed,"\t\tPWMFixed <chann> <percent> <time> Set type of duty cycle sweep.")
 
 /*--------------------------------------------------------------------------
 *	Name:			    TimerInit
@@ -466,14 +481,25 @@ void TIM1_UP_TIM10_IRQHandler(void)
 void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL_FIXED *chx)
 { 
   if(chx->status)
-  { uint32_t registerVal = (655536 * chx->currentP) / 100;
-    __HAL_TIM_SET_COMPARE(htim, (chx->channelNum), (uint16_t)(registerVal));
+  {
+    if(chx->timeActive <= 0){
+      chx->objectiveP = 0;
+    }
 
+    __HAL_TIM_SET_COMPARE(htim, chx->channelNum, (uint16_t)(chx->currentP));
+  
+    // Linear adjustment
     if(chx->currentP < chx->objectiveP){
-      chx->currentP++; // Increase 1%
+      (chx->currentP)++; // Increase 1%
     } 
     else if (chx->currentP > chx->objectiveP){
-      chx->currentP--; // Decrease 1%
+      (chx->currentP)--; // Decrease 1%
+    }
+
+    chx->timeActive--;
+
+    if(chx->currentP == 0){
+      chx->status = 0;
     }
   }
 }
@@ -485,9 +511,9 @@ void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL_FIXED *chx)
 *	Returns:		  ret: CmdReturnOk = 0 if Okay.
 ---------------------------------------------------------------------------*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-
+  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
   if(motorEnable){
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+    
     incrementDC(htim, ch1fPtr);
     incrementDC(htim, ch2fPtr);
     incrementDC(htim, ch3fPtr);
