@@ -277,6 +277,7 @@ ParserReturnVal_t PWMFixed()
   uint32_t tempChannel;
   uint16_t percentage;
   uint32_t timeactive;
+  uint32_t minTime;
   if(fetch_uint32_arg(&tempChannel)){
     printf("Please enter the channel number\n");
   }
@@ -296,8 +297,18 @@ ParserReturnVal_t PWMFixed()
             printf("Channel 1 set!\n");
             ch1fPtr->status = 1;
             ch1fPtr->objectiveP =  (uint32_t)percentage * (uint32_t)period / (uint32_t)100;
-            ch1fPtr->timeActive = timeactive*100;
             ch1fPtr->currentP = __HAL_TIM_GET_COMPARE(&tim1, TIM_CHANNEL_1);
+            
+            minTime = (ch1fPtr->objectiveP > ch1fPtr->currentP)? (ch1fPtr->objectiveP - ch1fPtr->currentP):
+                                                                (ch1fPtr->currentP - ch1fPtr->objectiveP);
+            if((timeactive*period/10) < minTime){
+              printf("Desired time is too low, new time set to %lds\n", (minTime*10)/period);
+              ch1fPtr->timeActive = minTime;
+            }
+            else{
+              ch1fPtr->timeActive = timeactive*period/10;
+            }
+              
             printf("Current Speed: %ld , Objective Speed: %ld \n", ch1fPtr->currentP, ch1fPtr->objectiveP);
             HAL_TIM_PWM_Start(&tim1, TIM_CHANNEL_1);
             break;
@@ -495,8 +506,10 @@ void incrementDC(TIM_HandleTypeDef *htim, PWM_CHANNEL_FIXED *chx)
     else if (chx->currentP > chx->objectiveP){
       (chx->currentP)--; // Decrease 1%
     }
-
-    chx->timeActive--;
+    else{
+      chx->timeActive--;
+    }
+    
 
     if(chx->currentP == 0){
       chx->status = 0;
